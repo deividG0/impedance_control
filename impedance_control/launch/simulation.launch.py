@@ -1,32 +1,20 @@
-
 import os
+from sympy import true
 from ament_index_python.packages import get_package_share_directory
-
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch_ros.substitutions import FindPackageShare
-from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 
 def generate_launch_description():
-    # Arguments values
+    # Use sim arg
     use_sim_time = LaunchConfiguration('use_sim_time', default=True)
-
-    # Arguments
     use_sim_time_arg = DeclareLaunchArgument(
         'use_sim_time',
         default_value=use_sim_time,
         description='If true, use simulated clock'
-    )
-    
-    # Gazebo related
-    world_path = os.path.join(get_package_share_directory('impedance_control'), 'worlds', 'empty_world.world')
-
-    gazebo_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([FindPackageShare('gazebo_ros'),
-                'launch','gazebo.launch.py'])])
     )
 
     robot_description = IncludeLaunchDescription(
@@ -39,42 +27,65 @@ def generate_launch_description():
         )
     )
 
-    robot_spawn_node = Node(
-        package='gazebo_ros', 
-        executable='spawn_entity.py',
-        arguments=['-topic', 'robot_description',
-                   '-entity', 'robot'],
-        output='screen'
-    )
+    # World
+    default_world = os.path.join(
+        get_package_share_directory('impedance_control'),
+        'worlds',
+        'ign_empty_world.world'
+        )    
+    
+    world = LaunchConfiguration('world')
 
-    declare_world_cmd = DeclareLaunchArgument(
-        name='world',
-        default_value=world_path,
-        description='Full path to the world model file to load'
+    world_arg = DeclareLaunchArgument(
+        'world',
+        default_value=default_world,
+        description='World to load'
+        )
+    
+    # Gazebo related launchs
+    # Include the Gazebo launch file, provided by the ros_gz_sim package
+    gazebo = IncludeLaunchDescription(
+                PythonLaunchDescriptionSource([os.path.join(
+                    get_package_share_directory('ros_gz_sim'), 'launch', 'gz_sim.launch.py')]),
+                    launch_arguments={'gz_args': ['-r -v4 ', world], 'on_exit_shutdown': 'true'}.items()
+             )
+
+    # Run the spawner node from the ros_gz_sim package. The entity name doesn't really matter if you only have a single robot.
+    spawn_entity = Node(package='ros_gz_sim', executable='create',
+                        arguments=['-topic', 'robot_description',
+                                   '-name', '3dof_manipulator',
+                                   '-z', '0.1'],
+                        output='screen')
+    
+    bridge_params = os.path.join(get_package_share_directory('impedance_control'),'config','gz_bridge.yaml')
+    ros_gz_bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        arguments=[
+            '--ros-args',
+            '-p',
+            f'config_file:={bridge_params}',
+        ]
     )
 
     return LaunchDescription([
-        robot_spawn_node,
-        robot_description,
         use_sim_time_arg,
+        world_arg,
+        gazebo,
+        robot_description,
+        spawn_entity,
+        ros_gz_bridge,
+        # gazebo_launch,
         Node(
             package="controller_manager",
             executable="spawner",
             arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
             output="screen",
         ),
-        # Node(
-        #     package="controller_manager",
-        #     executable="spawner",
-        #     arguments=["position_controller", "-c", "/controller_manager"],
-        #     output="screen",
-        # ),
         Node(
             package="controller_manager",
             executable="spawner",
             arguments=["joint_trajectory_controller", "-c", "/controller_manager"],
             output="screen",
         ),
-        declare_world_cmd,
-        gazebo_launch,
     ])
