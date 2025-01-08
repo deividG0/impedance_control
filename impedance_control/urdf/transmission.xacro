@@ -1,0 +1,31 @@
+<!-- Transmission -->
+<transmission name="trans_joint1">
+<type>transmission_interface/SimpleTransmission</type>
+<joint name="joint1">
+    <hardwareInterface>EffortJointInterface</hardwareInterface>
+</joint>
+<actuator name="joint1_motor">
+    <hardwareInterface>EffortJointInterface</hardwareInterface>
+    <mechanicalReduction>1</mechanicalReduction>
+</actuator>
+</transmission>
+<transmission name="trans_joint2">
+<type>transmission_interface/SimpleTransmission</type>
+<joint name="joint2">
+    <hardwareInterface>EffortJointInterface</hardwareInterface>
+</joint>
+<actuator name="joint2_motor">
+    <hardwareInterface>EffortJointInterface</hardwareInterface>
+    <mechanicalReduction>1</mechanicalReduction>
+</actuator>
+</transmission>
+<transmission name="trans_joint3">
+<type>transmission_interface/SimpleTransmission</type>
+<joint name="joint3">
+    <hardwareInterface>EffortJointInterface</hardwareInterface>
+</joint>
+<actuator name="joint3_motor">
+    <hardwareInterface>EffortJointInterface</hardwareInterface>
+    <mechanicalReduction>1</mechanicalReduction>
+</actuator>
+</transmission>
