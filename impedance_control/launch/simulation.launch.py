@@ -74,7 +74,7 @@ def generate_launch_description():
         gazebo,
         robot_description,
         spawn_entity,
-        ros_gz_bridge,
+        # ros_gz_bridge,
         # gazebo_launch,
         Node(
             package="controller_manager",

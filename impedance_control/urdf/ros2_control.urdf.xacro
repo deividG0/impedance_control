@@ -3,7 +3,8 @@
     <xacro:macro name="ros2_control">
         <ros2_control name="3dof_manipulator" type="system">
             <hardware>
-                <plugin>ign_ros2_control/IgnitionSystem</plugin>
+                <!-- <plugin>ign_ros2_control/IgnitionSystem</plugin> -->
+                <plugin>gz_ros2_control/GazeboSimSystem</plugin>
             </hardware>
             <joint name="joint1">
                 <param name="id">1</param>
