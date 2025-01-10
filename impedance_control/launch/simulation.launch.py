@@ -74,7 +74,7 @@ def generate_launch_description():
         gazebo,
         robot_description,
         spawn_entity,
-        # ros_gz_bridge,
+        ros_gz_bridge,
         # gazebo_launch,
         Node(
             package="controller_manager",
@@ -82,6 +82,18 @@ def generate_launch_description():
             arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
             output="screen",
         ),
+        # Node(
+        #     package="controller_manager",
+        #     executable="spawner",
+        #     arguments=["velocity_controller", "-c", "/controller_manager"],
+        #     output="screen",
+        # ),
+        # Node(
+        #     package="controller_manager",
+        #     executable="spawner",
+        #     arguments=["effort_controller", "-c", "/controller_manager"],
+        #     output="screen",
+        # ),
         Node(
             package="controller_manager",
             executable="spawner",
