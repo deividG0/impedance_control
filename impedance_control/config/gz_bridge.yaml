@@ -48,8 +48,22 @@
 #   direction: GZ_TO_ROS
 
 # gz topic published by JointState plugin
-- ros_topic_name: "force_torque"
+- ros_topic_name: "force_torque_joint1"
+  gz_topic_name: "/world/empty/model/3dof_manipulator/joint/joint1/sensor/force_torque/forcetorque"
+  ros_type_name: "geometry_msgs/msg/Wrench"
+  gz_type_name: "gz.msgs.Wrench"
+  direction: GZ_TO_ROS
+
+# gz topic published by JointState plugin
+- ros_topic_name: "force_torque_joint2"
   gz_topic_name: "/world/empty/model/3dof_manipulator/joint/joint2/sensor/force_torque/forcetorque"
+  ros_type_name: "geometry_msgs/msg/Wrench"
+  gz_type_name: "gz.msgs.Wrench"
+  direction: GZ_TO_ROS
+
+# gz topic published by JointState plugin
+- ros_topic_name: "force_torque_joint3"
+  gz_topic_name: "/world/empty/model/3dof_manipulator/joint/joint3/sensor/force_torque/forcetorque"
   ros_type_name: "geometry_msgs/msg/Wrench"
   gz_type_name: "gz.msgs.Wrench"
   direction: GZ_TO_ROS
