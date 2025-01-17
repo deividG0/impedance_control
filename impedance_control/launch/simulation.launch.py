@@ -71,8 +71,8 @@ def generate_launch_description():
     return LaunchDescription([
         use_sim_time_arg,
         world_arg,
-        gazebo,
         robot_description,
+        gazebo,
         spawn_entity,
         ros_gz_bridge,
         # gazebo_launch,
@@ -88,12 +88,12 @@ def generate_launch_description():
         #     arguments=["velocity_controller", "-c", "/controller_manager"],
         #     output="screen",
         # ),
-        # Node(
-        #     package="controller_manager",
-        #     executable="spawner",
-        #     arguments=["effort_controller", "-c", "/controller_manager"],
-        #     output="screen",
-        # ),
+        Node(
+            package="controller_manager",
+            executable="spawner",
+            arguments=["effort_controller", "-c", "/controller_manager"],
+            output="screen",
+        ),
         Node(
             package="controller_manager",
             executable="spawner",

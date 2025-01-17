@@ -48,8 +48,8 @@ class AdmittanceController3DOF(Node):
         def force_callback(msg: Wrench):
             # self.get_logger().info(f"Force callback: {msg.force.x}, {type(msg.force.x)}")
             # self.external_forces[joint_index] = msg.force.x*100
-            if joint_index == 2:
-                self.external_forces[joint_index] = 100.0
+            if joint_index == 1:
+                self.external_forces[joint_index] = -100.0
             else:
                 self.external_forces[joint_index] = 0.0
             self.compute_admittance()

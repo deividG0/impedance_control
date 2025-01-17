@@ -1,16 +1,8 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
     <gazebo>
         <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
-        <!-- <plugin name="ign_ros2_control::IgnitionROS2ControlPlugin" filename="ign_ros2_control-system"> -->
-        <!-- <plugin name="ign_ros2_control::IgnitionROS2ControlPlugin" filename="libign_ros2_control-system"> -->
-        <!-- <plugin filename="ignition_ros2_control-system" name="ignition_ros2_control::IgnitionROS2ControlPlugin"> -->
             <parameters>$(find impedance_control)/config/controllers.yaml</parameters>
         </plugin>
-        <!-- <plugin name="gazebo_ros2_force_torque" filename="libgazebo_ros2_sensors.so">
-            <ros>
-                <namespace>/force_torque</namespace>
-            </ros>
-        </plugin> -->
     </gazebo>
 
     <gazebo reference="link1">
