@@ -94,10 +94,10 @@ def generate_launch_description():
             arguments=["effort_controller", "-c", "/controller_manager"],
             output="screen",
         ),
-        Node(
-            package="controller_manager",
-            executable="spawner",
-            arguments=["joint_trajectory_controller", "-c", "/controller_manager"],
-            output="screen",
-        ),
+        # Node(
+        #     package="controller_manager",
+        #     executable="spawner",
+        #     arguments=["joint_trajectory_controller", "-c", "/controller_manager"],
+        #     output="screen",
+        # ),
     ])

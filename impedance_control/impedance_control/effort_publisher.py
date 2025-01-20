@@ -12,7 +12,7 @@ class EffortControllerPublisher(Node):
     def publish_torque_values(self):
         msg = Float64MultiArray()
         # Example torque values (adjust as needed for your application)
-        msg.data = [1000.0, 1000.0, 1000.0]  # Replace with the desired torque values
+        msg.data = [-10.0, -10.0, -10.0]  # Replace with the desired torque values
         self.publisher_.publish(msg)
         self.get_logger().info(f'Published torque values: {msg.data}')
 
