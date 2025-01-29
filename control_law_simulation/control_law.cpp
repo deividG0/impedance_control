@@ -34,6 +34,21 @@ public:
     // Transposed Jacobian matrix in task space
     jacobian = mEndEffector->getJacobian();
     jacobianTranspose = jacobian.transpose();
+    jacobianDeriv = mEndEffector->getJacobianSpatialDeriv();
+
+    // Compute the inverse of the Jacobian matrix
+    if (jacobian.rows() == jacobian.cols()) {
+        jacobianInverse = jacobian.inverse();  // Direct inversion (only works if square)
+    } else {
+        jacobianInverse = jacobian.completeOrthogonalDecomposition().pseudoInverse();  // Compute pseudo-inverse if not square
+    }
+
+    // Compute the inverse of the Jacobian matrix
+    if (jacobianTranspose.rows() == jacobianTranspose.cols()) {
+        jacobianTransposeInverse = jacobianTranspose.inverse();  // Direct inversion (only works if square)
+    } else {
+        jacobianTransposeInverse = jacobianTranspose.completeOrthogonalDecomposition().pseudoInverse();  // Compute pseudo-inverse if not square
+    }
 
     // Inertia matrix in task space
     massMatrix = robot->getMassMatrix();
@@ -77,15 +92,41 @@ public:
     // Transposed Jacobian matrix in task space
     jacobian = mEndEffector->getJacobian();
     jacobianTranspose = jacobian.transpose();
+    jacobianDeriv = mEndEffector->getJacobianSpatialDeriv();
+
+    // Compute the inverse of the Jacobian matrix
+    // if (jacobian.rows() == jacobian.cols()) {
+    //     jacobianInverse = jacobian.inverse();  // Direct inversion (only works if square)
+    // } else {
+        jacobianInverse = jacobian.completeOrthogonalDecomposition().pseudoInverse();  // Compute pseudo-inverse if not square
+    // }
+
+    // Compute the inverse of the Jacobian matrix
+    // if (jacobianTranspose.rows() == jacobianTranspose.cols()) {
+    //     std::cout << "jacobian matrix is square" << std::endl;
+    //     jacobianTransposeInverse = jacobianTranspose.inverse();  // Direct inversion (only works if square)
+    // } else {
+        jacobianTransposeInverse = jacobianTranspose.completeOrthogonalDecomposition().pseudoInverse();  // Compute pseudo-inverse if not square
+    // }
 
     // Inertia matrix in task space
     massMatrix = robot->getMassMatrix();
-    taskSpaceInertia = jacobian * massMatrix * jacobianTranspose;
+    taskSpaceInertia = jacobianTransposeInverse * massMatrix * jacobianInverse;
+    std::cout << "jacobian" << jacobian << std::endl;
+    std::cout << "jacobianTransposeInverse" << jacobianTransposeInverse << std::endl;
+    std::cout << "jacobianInverse" << jacobianInverse << std::endl;
+    std::cout << "taskSpaceInertia" << taskSpaceInertia << std::endl;
+    // taskSpaceInertia = jacobian * massMatrix * jacobianTranspose;
 
     // Coriolis matrix in task space
     coriolisForces = robot->getCoriolisForces();
-    taskSpaceCoriolis = jacobian * coriolisForces.asDiagonal();
-    std::cout << "Number of links of the robot" << numberOfLinks << std::endl;
+    std::cout << "coriolisForces" << coriolisForces << std::endl;
+    std::cout << "jacobianDeriv" << jacobianDeriv << std::endl;
+
+    // taskSpaceCoriolis = jacobianTransposeInverse * (coriolisForces - massMatrix * jacobianInverse * jacobianDeriv) * jacobianInverse;
+    taskSpaceCoriolis = jacobianTransposeInverse * (Eigen::Matrix6d::Zero() - massMatrix * jacobianInverse * jacobianDeriv) * jacobianInverse;
+    std::cout << "taskSpaceCoriolis" << taskSpaceCoriolis << std::endl;
+    // taskSpaceCoriolis = jacobian * coriolisForces.asDiagonal();
 
     accelerations.head<3>() = Eigen::Vector3d::Zero();
     // accelerations.head<3>() = mEndEffector->getLinearAcceleration();
@@ -145,6 +186,9 @@ protected:
   // Transposed Jacobian matrix in task space
   Eigen::MatrixXd jacobian;
   Eigen::MatrixXd jacobianTranspose;
+  Eigen::MatrixXd jacobianInverse;
+  Eigen::MatrixXd jacobianDeriv;
+  Eigen::MatrixXd jacobianTransposeInverse;
 
   // Inertia matrix in task space
   Eigen::MatrixXd massMatrix;
