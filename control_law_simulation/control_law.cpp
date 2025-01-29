@@ -16,24 +16,17 @@ public:
   {
     // Extract the relevant pointers
     robot = mWorld->getSkeleton(0);
-    mEndEffector = robot->getBodyNode(robot->getNumBodyNodes() - 1);
-    mEndEffectorPose.resize(6); // Store (x, y, z, roll, pitch, yaw)
+    numberOfLinks = robot->getNumBodyNodes() - 1;
+    mEndEffector = robot->getBodyNode(numberOfLinks);
+    mEndEffectorPose.resize(numberOfLinks); // Store (x, y, z, roll, pitch, yaw)
 
     // Set joint properties
     robot->eachJoint([](dart::dynamics::Joint* joint) {
       joint->setLimitEnforcement(false);
       joint->setDampingCoefficient(0, 0.5);
     });
-
-    // mOffset = Eigen::Vector6d(0.05, 0, 0, 0, 0, 0);
-    mOffset = Eigen::Vector3d(1.0, 1.0, 1.0);
-
     // Create target Frame
     Eigen::Isometry3d tf = mEndEffector->getWorldTransform();
-    tf.pretranslate(mOffset);
-
-    mOffset
-        = mEndEffector->getWorldTransform().rotation().transpose() * mOffset;
 
     // Gravity torques
     gravityTorques = robot->getGravityForces();
@@ -55,11 +48,23 @@ public:
     stiffnessMatrix = Eigen::Matrix6d::Identity() * 5.0; // Example: 50.0 as stiffness coefficient
 
     // Define damping and stiffness matrices
-    accelerations = Eigen::Vector6d::Zero();
+    accelerations.resize(6);
+    accelerations.head<3>() = mEndEffector->getLinearAcceleration();
+    accelerations.tail<3>() = Eigen::Vector3d::Zero();
+
     error_velocities = Eigen::Vector6d::Zero();
+    
+    current_velocities.resize(6);
+    current_velocities.head<3>() = mEndEffector->getLinearVelocity();
+    current_velocities.tail<3>() = Eigen::Vector3d::Zero();
+    
     velocities = Eigen::Vector6d::Zero();
+
     error_positions = Eigen::Vector6d::Zero();
-    positions = Eigen::Vector6d::Ones();
+    positions = Eigen::Vector6d::Zero();
+    positions[0] = 0.0;
+    positions[1] = 0.0;
+    positions[2] = 0.42;
   }
 
   // Triggered at the beginning of each simulation step
@@ -80,43 +85,41 @@ public:
     // Coriolis matrix in task space
     coriolisForces = robot->getCoriolisForces();
     taskSpaceCoriolis = jacobian * coriolisForces.asDiagonal();
+    std::cout << "Number of links of the robot" << numberOfLinks << std::endl;
 
-    std::cout << "DEBUG1" << std::endl;
+    accelerations.head<3>() = Eigen::Vector3d::Zero();
+    // accelerations.head<3>() = mEndEffector->getLinearAcceleration();
+    accelerations.tail<3>() = Eigen::Vector3d::Zero();
+    // accelerations.tail<3>() = mEndEffector->getAngularAcceleration();
+    
+    current_velocities.head<3>() = mEndEffector->getLinearVelocity();
+    current_velocities.tail<3>() = mEndEffector->getAngularVelocity();
+    std::cout << "current_velocities:\n" << current_velocities << std::endl;
 
     mEndEffectorPose.head<3>() = mEndEffector->getWorldTransform().translation(); // Extract translation (x, y, z)
     mEndEffectorPose.tail<3>() = mEndEffector->getWorldTransform().rotation().eulerAngles(2, 1, 0); // ZYX convention (yaw, pitch, roll)
     std::cout << "End-Effector Position and Orientation (XYZRPY):\n" << mEndEffectorPose.transpose() << std::endl;
-    std::cout << "positions:\n" << positions.transpose() << std::endl;
 
-    std::cout << "DEBUG2" << std::endl;
-
-    error_positions = positions.transpose() - mEndEffectorPose.transpose() * 0.001;
-
-    std::cout << "DEBUG3" << std::endl;
+    error_positions = (positions.transpose() - mEndEffectorPose.transpose() * 1.0).cwiseAbs();
+    std::cout << "error_positions:\n" << error_positions << std::endl;
+    error_velocities = (velocities.transpose() - current_velocities.transpose() * 1.0).cwiseAbs();
+    std::cout << "error_velocities:\n" << error_velocities << std::endl;
 
     // Interation
-    Eigen::MatrixXd cartesianPart = taskSpaceInertia * accelerations.transpose() + taskSpaceCoriolis * velocities.transpose()
-         + dampingMatrix * error_velocities.transpose() + stiffnessMatrix * error_positions.transpose();
-    std::cout << "DEBUG4" << std::endl;
-    
+    Eigen::MatrixXd cartesianPart = taskSpaceInertia * accelerations 
+                + taskSpaceCoriolis * velocities 
+                + dampingMatrix * error_velocities 
+                + stiffnessMatrix * error_positions;
+    std::cout << "cartesianPart:\n" << cartesianPart << std::endl;
+
     Eigen::VectorXd mForces = gravityTorques + jacobianTranspose * cartesianPart;
-
-    std::cout << "term1:\n" << taskSpaceInertia * accelerations << std::endl;
-    std::cout << "term2:\n" << taskSpaceCoriolis * velocities << std::endl;
-    std::cout << "term3:\n" << dampingMatrix * error_velocities << std::endl;
-    std::cout << "term4:\n" << stiffnessMatrix * error_positions << std::endl;
-
-    std::cout << "gravityTorques:\n" << gravityTorques << std::endl;
+    if ((error_positions.array() < 0.01).all()){
+      Eigen::VectorXd mForces = mForces;
+      std::cout << "threshold achieved\n";
+    }
     std::cout << "mForces:\n" << mForces << std::endl;
-    std::cout << "error_positions:\n" << error_positions << std::endl;
-    // std::cout << "cartesianPart:\n" << cartesianPart << std::endl;
-    // std::cout << "mEndEffector:\n" << mEndEffectorPose * mOffset << std::endl;
 
     robot->setForces(mForces);
-    // robot->setForces(mForces * -1.0);
-    // robot->setForces(gravityTorques * 1.0);
-    // robot->setForces(Eigen::Vector6d(0.0, -3.2, -2.39, 0.0, 0.0, 0.0));
-    // robot->setForces(mEndEffectorPose * mOffset);
   }
 
 protected:
@@ -133,8 +136,9 @@ protected:
   SkeletonPtr robot;
   BodyNode* mEndEffector;
 
+  int numberOfLinks;
+
   Eigen::VectorXd mEndEffectorPose; // Now stores (x, y, z, roll, pitch, yaw)
-  Eigen::Vector3d mOffset;
   // Gravity torques
   Eigen::VectorXd gravityTorques;
 
@@ -157,6 +161,7 @@ protected:
   // Define damping and stiffness matrices
   Eigen::VectorXd accelerations;
   Eigen::VectorXd error_velocities;
+  Eigen::VectorXd current_velocities;
   Eigen::VectorXd velocities;
   Eigen::VectorXd error_positions;
   Eigen::VectorXd positions;
@@ -169,8 +174,11 @@ int main()
   dart::utils::DartLoader loader;
 
   // Load the robot
+  // dart::dynamics::SkeletonPtr robot
+  //     = loader.parseSkeleton("dart://sample/urdf/omp/open_manipulator_pro.urdf");
+
   dart::dynamics::SkeletonPtr robot
-      = loader.parseSkeleton("dart://sample/urdf/omp/open_manipulator_pro.urdf");
+      = loader.parseSkeleton("dart://sample/urdf/KR5/KR5 sixx R650.urdf");
   world->addSkeleton(robot);
 
   // Rotate the robot so that z is upwards (default transform is not Identity)
