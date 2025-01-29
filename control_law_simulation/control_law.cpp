@@ -17,6 +17,7 @@ public:
     // Extract the relevant pointers
     robot = mWorld->getSkeleton(0);
     mEndEffector = robot->getBodyNode(robot->getNumBodyNodes() - 1);
+    mEndEffectorPose.resize(6); // Store (x, y, z, roll, pitch, yaw)
 
     // Set joint properties
     robot->eachJoint([](dart::dynamics::Joint* joint) {
@@ -24,7 +25,8 @@ public:
       joint->setDampingCoefficient(0, 0.5);
     });
 
-    mOffset = Eigen::Vector3d(0.05, 0, 0);
+    // mOffset = Eigen::Vector6d(0.05, 0, 0, 0, 0, 0);
+    mOffset = Eigen::Vector3d(1.0, 1.0, 1.0);
 
     // Create target Frame
     Eigen::Isometry3d tf = mEndEffector->getWorldTransform();
@@ -46,63 +48,75 @@ public:
 
     // Coriolis matrix in task space
     coriolisForces = robot->getCoriolisForces();
-
     taskSpaceCoriolis = jacobian * coriolisForces.asDiagonal();
 
     // Define damping and stiffness matrices
-    dampingMatrix = Eigen::Matrix6d::Identity() * 10.0; // Example: 10.0 as damping coefficient
-    stiffnessMatrix = Eigen::Matrix6d::Identity() * 50.0; // Example: 50.0 as stiffness coefficient
+    dampingMatrix = Eigen::Matrix6d::Identity() * 1.0; // Example: 10.0 as damping coefficient
+    stiffnessMatrix = Eigen::Matrix6d::Identity() * 5.0; // Example: 50.0 as stiffness coefficient
 
     // Define damping and stiffness matrices
-    accelerations = Eigen::Matrix6d::Identity() * 0.0;
-    velocities = Eigen::Matrix6d::Identity() * 0.0;
-    positions = Eigen::Matrix6d::Identity() * 0.3;
+    accelerations = Eigen::Vector6d::Zero();
+    error_velocities = Eigen::Vector6d::Zero();
+    velocities = Eigen::Vector6d::Zero();
+    error_positions = Eigen::Vector6d::Zero();
+    positions = Eigen::Vector6d::Ones();
   }
 
   // Triggered at the beginning of each simulation step
   void customPreStep() override
   {
-    // Eigen::MatrixXd M = mRobot->getMassMatrix();
+    // Updating properties
+    // Gravity torques
+    gravityTorques = robot->getGravityForces();
 
-    // LinearJacobian J = mEndEffector->getLinearJacobian(mOffset);
-    // Eigen::MatrixXd pinv_J
-    //     = J.transpose()
-    //       * (J * J.transpose() + 0.0025 * Eigen::Matrix3d::Identity())
-    //             .inverse();
+    // Transposed Jacobian matrix in task space
+    jacobian = mEndEffector->getJacobian();
+    jacobianTranspose = jacobian.transpose();
 
-    // LinearJacobian dJ = mEndEffector->getLinearJacobianDeriv(mOffset);
-    // Eigen::MatrixXd pinv_dJ
-    //     = dJ.transpose()
-    //       * (dJ * dJ.transpose() + 0.0025 * Eigen::Matrix3d::Identity())
-    //             .inverse();
+    // Inertia matrix in task space
+    massMatrix = robot->getMassMatrix();
+    taskSpaceInertia = jacobian * massMatrix * jacobianTranspose;
 
-    // // Eigen::Vector3d e = mTarget->getWorldTransform().translation()
-    // //                     - mEndEffector->getWorldTransform() * mOffset;
+    // Coriolis matrix in task space
+    coriolisForces = robot->getCoriolisForces();
+    taskSpaceCoriolis = jacobian * coriolisForces.asDiagonal();
 
-    // Eigen::Vector3d de = -mEndEffector->getLinearVelocity(mOffset);
+    std::cout << "DEBUG1" << std::endl;
 
-    // Eigen::VectorXd Cg = mRobot->getCoriolisAndGravityForces();
+    mEndEffectorPose.head<3>() = mEndEffector->getWorldTransform().translation(); // Extract translation (x, y, z)
+    mEndEffectorPose.tail<3>() = mEndEffector->getWorldTransform().rotation().eulerAngles(2, 1, 0); // ZYX convention (yaw, pitch, roll)
+    std::cout << "End-Effector Position and Orientation (XYZRPY):\n" << mEndEffectorPose.transpose() << std::endl;
+    std::cout << "positions:\n" << positions.transpose() << std::endl;
 
-    // mForces = M * (pinv_J * mKp * de + pinv_dJ * mKp * e) + Cg
-    //           + mKd * pinv_J * mKp * e;
+    std::cout << "DEBUG2" << std::endl;
 
-    std::cout << "HERE1??\n";
+    error_positions = positions.transpose() - mEndEffectorPose.transpose() * 0.001;
+
+    std::cout << "DEBUG3" << std::endl;
+
     // Interation
-    Eigen::MatrixXd cartesianPart = taskSpaceInertia * accelerations + taskSpaceCoriolis + (dampingMatrix * velocities + stiffnessMatrix * positions);
-    std::cout << "HERE2??\n";
+    Eigen::MatrixXd cartesianPart = taskSpaceInertia * accelerations.transpose() + taskSpaceCoriolis * velocities.transpose()
+         + dampingMatrix * error_velocities.transpose() + stiffnessMatrix * error_positions.transpose();
+    std::cout << "DEBUG4" << std::endl;
+    
+    Eigen::VectorXd mForces = gravityTorques + jacobianTranspose * cartesianPart;
 
-    Eigen::VectorXd mForces = gravityTorques + (jacobianTranspose * cartesianPart).diagonal();
-    std::cout << "HERE2??\n";
+    std::cout << "term1:\n" << taskSpaceInertia * accelerations << std::endl;
+    std::cout << "term2:\n" << taskSpaceCoriolis * velocities << std::endl;
+    std::cout << "term3:\n" << dampingMatrix * error_velocities << std::endl;
+    std::cout << "term4:\n" << stiffnessMatrix * error_positions << std::endl;
 
-    std::cout << "mEndEffector:\n" << mEndEffector->getWorldTransform() * mOffset << std::endl;
+    std::cout << "gravityTorques:\n" << gravityTorques << std::endl;
+    std::cout << "mForces:\n" << mForces << std::endl;
+    std::cout << "error_positions:\n" << error_positions << std::endl;
+    // std::cout << "cartesianPart:\n" << cartesianPart << std::endl;
+    // std::cout << "mEndEffector:\n" << mEndEffectorPose * mOffset << std::endl;
 
-    // positions = positions - Eigen::Matrix6d::Identity() * 0.001;
-    // positions = positions - mEndEffector->getWorldTransform() * mOffset;
-    std::cout << "HERE3??\n";
-
-    // robot->setForces(mForces);
-    // robot->setForces(Eigen::Vector6d(0.05, 0, 0, 0, 0, 0));
-    robot->setForces(Eigen::Vector6d(1.0, 1.0, 1.0, 1.0, 1.0, 1.0));
+    robot->setForces(mForces);
+    // robot->setForces(mForces * -1.0);
+    // robot->setForces(gravityTorques * 1.0);
+    // robot->setForces(Eigen::Vector6d(0.0, -3.2, -2.39, 0.0, 0.0, 0.0));
+    // robot->setForces(mEndEffectorPose * mOffset);
   }
 
 protected:
@@ -112,23 +126,15 @@ protected:
     if (mViewer) {
     //   dnd->setObstructable(false);
       mViewer->addInstructionText(
-          "\nClick and drag the red ball to move the target of the operational "
-          "space controller\n");
-      mViewer->addInstructionText(
-          "Hold key 1 to constrain movements to the x-axis\n");
-      mViewer->addInstructionText(
-          "Hold key 2 to constrain movements to the y-axis\n");
-      mViewer->addInstructionText(
-          "Hold key 3 to constrain movements to the z-axis\n");
+          "\nLoading simulation ...\n");
     }
   }
 
   SkeletonPtr robot;
   BodyNode* mEndEffector;
 
+  Eigen::VectorXd mEndEffectorPose; // Now stores (x, y, z, roll, pitch, yaw)
   Eigen::Vector3d mOffset;
-//   Eigen::Matrix3d mKp;
-//   Eigen::MatrixXd mKd;
   // Gravity torques
   Eigen::VectorXd gravityTorques;
 
@@ -149,9 +155,11 @@ protected:
   Eigen::MatrixXd stiffnessMatrix;
 
   // Define damping and stiffness matrices
-  Eigen::MatrixXd accelerations;
-  Eigen::MatrixXd velocities;
-  Eigen::MatrixXd positions;
+  Eigen::VectorXd accelerations;
+  Eigen::VectorXd error_velocities;
+  Eigen::VectorXd velocities;
+  Eigen::VectorXd error_positions;
+  Eigen::VectorXd positions;
   Eigen::VectorXd mForces;
 };
 
@@ -192,10 +200,6 @@ int main()
   viewer.addWorldNode(node);
   viewer.simulate(true);
 
-  // Add our custom event handler to the Viewer
-//   viewer.addEventHandler(new ConstraintEventHandler(node->dnd));
-//   viewer.addEventHandler(new ShadowEventHandler(node.get(), &viewer));
-
   // Print out instructions
   std::cout << viewer.getInstructions() << std::endl;
 
@@ -213,3 +217,32 @@ int main()
   // Begin the application loop
   viewer.run();
 }
+
+
+// #include <iostream>
+// #include <Eigen/Dense>
+
+// int main() {
+//     // Define 6x6 matrix and 6D vector
+//     Eigen::Matrix<double, 6, 6> matrix6d;
+//     Eigen::Matrix<double, 6, 1> vector6d;
+    
+//     // Initialize the matrix with random values
+//     matrix6d.setRandom();
+    
+//     // Initialize the vector with random values
+//     vector6d.setRandom();
+
+//     vector6d = vector6d * 0.0;
+//     vector6d[0] = 1.0;
+
+//     // Perform matrix-vector multiplication
+//     Eigen::Matrix<double, 6, 1> result = matrix6d * vector6d;
+
+//     // Print results
+//     std::cout << "Matrix6d:\n" << matrix6d << "\n\n";
+//     std::cout << "Vector6d:\n" << vector6d << "\n\n";
+//     std::cout << "Result (Matrix6d * Vector6d):\n" << result << "\n";
+
+//     return 0;
+// }
