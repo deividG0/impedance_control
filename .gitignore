@@ -1,3 +1,5 @@
 .vscode
 gz_ros2_control
 **/build
+/reach_robotics_sdk
+/bravo_dynamics_test
