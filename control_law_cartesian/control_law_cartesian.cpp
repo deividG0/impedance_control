@@ -1,35 +1,3 @@
-/*
- * Copyright (c) 2011-2024, The DART development contributors
- * All rights reserved.
- *
- * The list of contributors can be found at:
- *   https://github.com/dartsim/dart/blob/main/LICENSE
- *
- * This file is provided under the following "BSD-style" License:
- *   Redistribution and use in source and binary forms, with or
- *   without modification, are permitted provided that the following
- *   conditions are met:
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
- *   CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
- *   INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- *   MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *   DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
- *   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- *   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- *   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- *   USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
- *   AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *   POSSIBILITY OF SUCH DAMAGE.
- */
-
 #include <dart/gui/osg/osg.hpp>
 
 #include <dart/utils/urdf/urdf.hpp>
@@ -87,7 +55,7 @@ public:
   void customPreStep() override
   {
     Eigen::VectorXd gravityForces = mRobot->getGravityForces();
-    std::cout << "Gravity forces\n" << gravityForces << std::endl;
+    // std::cout << "Gravity forces\n" << gravityForces << std::endl;
 
     LinearJacobian J = mEndEffector->getLinearJacobian(mOffset);
 
@@ -110,7 +78,7 @@ public:
     // std::cout << "Pseudo Transposed Jacobian Inverse\n" << pinv_tJ << std::endl;
 
     Eigen::MatrixXd taskSpaceInertia = pinv_tJ * M * pinv_J;
-    std::cout << "Inertia matrix\n" << taskSpaceInertia << std::endl;
+    // std::cout << "Inertia matrix\n" << taskSpaceInertia << std::endl;
 
     LinearJacobian dJ = mEndEffector->getLinearJacobianDeriv(mOffset);
     // std::cout << "Derivate Jacobian\n" << dJ << std::endl;
@@ -120,7 +88,6 @@ public:
     Eigen::MatrixXd taskSpaceCoriolis = pinv_tJ * (C - M * pinv_J * dJ) * pinv_J;
     // std::cout << "Coriolis matrix task space\n" << taskSpaceCoriolis << std::endl;
 
-    // Eigen::Vector3d target = Eigen::Vector3d(0.5, -0.3, 0.3);
     Eigen::Vector3d target = mTarget->getWorldTransform().translation();
     // std::cout << "Target\n" << target << std::endl;
 
@@ -129,19 +96,19 @@ public:
 
     Eigen::Vector3d e = target - endEffector;
 
-    std::cout << "Position error\n" << e << std::endl;
+    // std::cout << "Position error\n" << e << std::endl;
 
     Eigen::Vector3d de = mEndEffector->getLinearVelocity(mOffset);  // OBSERVATION
     Eigen::Vector3d dde = mEndEffector->getLinearAcceleration(mOffset);  // OBSERVATION
-    std::cout << "Linear Accelaration\n" << dde << std::endl;
+    // std::cout << "Linear Accelaration\n" << dde << std::endl;
 
-    std::cout << "Inertia term\n" << taskSpaceInertia * (-1)*dde << std::endl;
-    std::cout << "Coriolis term\n" << taskSpaceCoriolis * (-1)*de << std::endl;
-    std::cout << "Damping term\n" << dampingMatrix * (-1)*de << std::endl;
-    std::cout << "Stiffness term\n" << stiffnessMatrix * e << std::endl;
+    // std::cout << "Inertia term\n" << taskSpaceInertia * (-1)*dde << std::endl;
+    // std::cout << "Coriolis term\n" << taskSpaceCoriolis * (-1)*de << std::endl;
+    // std::cout << "Damping term\n" << dampingMatrix * (-1)*de << std::endl;
+    // std::cout << "Stiffness term\n" << stiffnessMatrix * e << std::endl;
 
     dde = Eigen::Vector3d(0.0, 0.0, 0.0);
-    Eigen::MatrixXd cartesianPart = taskSpaceInertia * (-1)*dde
+    Eigen::MatrixXd cartesianPart = taskSpaceInertia * dde
                 + taskSpaceCoriolis * (-1)*de
                 + dampingMatrix * (-1)*de
                 + stiffnessMatrix * e;
@@ -364,6 +331,10 @@ int main()
 {
   dart::simulation::WorldPtr world(new dart::simulation::World);
   dart::utils::DartLoader loader;
+
+  // Load the robot
+  // dart::dynamics::SkeletonPtr robot
+  //     = loader.parseSkeleton("/home/cimatec/Desktop/DART/dart/data/urdf/omp/open_manipulator_pro.urdf");
 
   // Load the robot
   dart::dynamics::SkeletonPtr robot
