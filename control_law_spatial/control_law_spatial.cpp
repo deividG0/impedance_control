@@ -21,14 +21,14 @@ public:
 
     // Setup gain matrices
     // std::size_t dofs = mEndEffector->getNumDependentGenCoords();
-    std::size_t dofs = 3;
+    std::size_t dofs = 6;
     stiffnessMatrix.setZero(dofs, dofs);
     for (std::size_t i = 0; i < dofs; ++i)
-      stiffnessMatrix(i, i) = 300.0;
+      stiffnessMatrix(i, i) = 0.5;
 
     dampingMatrix.setZero(dofs, dofs);
     for (std::size_t i = 0; i < dofs; ++i)
-      dampingMatrix(i, i) = 15.0;
+      dampingMatrix(i, i) = 0.5;
 
     // Set joint properties
     mRobot->eachJoint([](dart::dynamics::Joint* joint) {
@@ -57,7 +57,8 @@ public:
     Eigen::VectorXd gravityForces = mRobot->getGravityForces();
     // std::cout << "Gravity forces\n" << gravityForces << std::endl;
 
-    LinearJacobian J = mEndEffector->getLinearJacobian(mOffset);
+    Eigen::MatrixXd J = mEndEffector->getJacobian(mOffset);
+    // std::cout << "Jacobian\n" << J << std::endl;
 
     Eigen::MatrixXd transJ = J.transpose();
     // std::cout << "Jacobian Transposed\n" << transJ << std::endl;
@@ -67,7 +68,7 @@ public:
 
     Eigen::MatrixXd pinv_J
         = J.transpose()
-          * (J * J.transpose() + 0.0025 * Eigen::Matrix3d::Identity())
+          * (J * J.transpose() + 0.0025 * Eigen::Matrix6d::Identity())
                 .inverse();
     // std::cout << "Pseudo Jacobian Inverse\n" << pinv_J << std::endl;
 
@@ -80,38 +81,45 @@ public:
     Eigen::MatrixXd taskSpaceInertia = pinv_tJ * M * pinv_J;
     // std::cout << "Inertia matrix\n" << taskSpaceInertia << std::endl;
 
-    LinearJacobian dJ = mEndEffector->getLinearJacobianDeriv(mOffset);
+    Eigen::MatrixXd dJ = mEndEffector->getJacobianSpatialDeriv(mOffset);
     // std::cout << "Derivate Jacobian\n" << dJ << std::endl;
 
     Eigen::MatrixXd C = computeCoriolisMatrix(mRobot);
+    // std::cout << "Coriolis matrix\n" << C << std::endl;
 
     Eigen::MatrixXd taskSpaceCoriolis = pinv_tJ * (C - M * pinv_J * dJ) * pinv_J;
     // std::cout << "Coriolis matrix task space\n" << taskSpaceCoriolis << std::endl;
 
-    Eigen::Vector3d target = mTarget->getWorldTransform().translation();
-    // std::cout << "Target\n" << target << std::endl;
-
-    Eigen::Vector3d endEffector = mEndEffector->getWorldTransform() * mOffset;
-    // std::cout << "End-effector\n" << endEffector << std::endl;
+    Eigen::Vector6d target = Eigen::Vector6d::Zero();
+    target.head(3) = mTarget->getWorldTransform().translation();
+    target.tail(3) = Eigen::Vector3d(1.57, 1.57, 1.57);
+    std::cout << "Target\n" << target << std::endl;
 
     Eigen::Vector3d eulerAngles = mEndEffector->getWorldTransform().rotation().eulerAngles(2, 1, 0);
-    std::cout << "End-effector ROTATION\n" << eulerAngles << std::endl;
 
-    Eigen::Vector3d e = target - endEffector;
+    Eigen::Vector6d endEffector = Eigen::Vector6d::Zero();
+    endEffector.head(3) = mEndEffector->getWorldTransform() * mOffset;
+    // endEffector.tail(3) = eulerAngles;
+    endEffector.tail(3) = Eigen::Vector3d(1.57, 1.57, 1.57);   // OBSERVATION
+    std::cout << "End-effector\n" << endEffector << std::endl;
 
-    // std::cout << "Position error\n" << e << std::endl;
+    Eigen::Vector6d e = target - endEffector;
 
-    Eigen::Vector3d de = mEndEffector->getLinearVelocity(mOffset);  // OBSERVATION
-    Eigen::Vector3d dde = mEndEffector->getLinearAcceleration(mOffset);  // OBSERVATION
-    // std::cout << "Linear Accelaration\n" << dde << std::endl;
+    std::cout << "Position error\n" << e << std::endl;
+
+    Eigen::Vector6d de = mEndEffector->getSpatialVelocity(mOffset);
+    // Eigen::Vector6d dde = mEndEffector->getSpatialAcceleration(mOffset);
+    Eigen::Vector6d dde = Eigen::Vector6d::Zero();
+    // std::cout << "Spatial Accelaration\n" << dde << std::endl;
+    // std::cout << "Spatial Velocity\n" << de << std::endl;
 
     // std::cout << "Inertia term\n" << taskSpaceInertia * (-1)*dde << std::endl;
     // std::cout << "Coriolis term\n" << taskSpaceCoriolis * (-1)*de << std::endl;
     // std::cout << "Damping term\n" << dampingMatrix * (-1)*de << std::endl;
     // std::cout << "Stiffness term\n" << stiffnessMatrix * e << std::endl;
 
-    dde = Eigen::Vector3d(0.0, 0.0, 0.0);
-    Eigen::MatrixXd cartesianPart = taskSpaceInertia * dde
+    // dde = Eigen::Vector6d(0.0, 0.0, 0.0);
+    Eigen::MatrixXd cartesianPart = taskSpaceInertia * (-1)*dde
                 + taskSpaceCoriolis * (-1)*de
                 + dampingMatrix * (-1)*de
                 + stiffnessMatrix * e;
@@ -119,6 +127,7 @@ public:
     mForces = gravityForces + transJ * cartesianPart;
 
     std::cout << "Forces:\n" << mForces << std::endl;
+    // mForces = Eigen::Vector6d::Zero();
 
     mRobot->setForces(mForces);
   }
@@ -190,8 +199,8 @@ protected:
   SimpleFramePtr mTarget;
 
   Eigen::Vector3d mOffset;
-  Eigen::Matrix3d stiffnessMatrix;
-  Eigen::Matrix3d dampingMatrix;
+  Eigen::Matrix6d stiffnessMatrix;
+  Eigen::Matrix6d dampingMatrix;
   Eigen::VectorXd mForces;
 };
 
@@ -335,7 +344,7 @@ int main()
   dart::simulation::WorldPtr world(new dart::simulation::World);
   dart::utils::DartLoader loader;
 
-  // Load the robot
+  // // Load the robot
   // dart::dynamics::SkeletonPtr robot
   //     = loader.parseSkeleton("/home/cimatec/Desktop/DART/dart/data/urdf/omp/open_manipulator_pro.urdf");
 
