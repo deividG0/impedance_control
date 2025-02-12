@@ -24,11 +24,11 @@ public:
     std::size_t dofs = 6;
     stiffnessMatrix.setZero(dofs, dofs);
     for (std::size_t i = 0; i < dofs; ++i)
-      stiffnessMatrix(i, i) = 0.5;
+      stiffnessMatrix(i, i) = 10.0;
 
     dampingMatrix.setZero(dofs, dofs);
     for (std::size_t i = 0; i < dofs; ++i)
-      dampingMatrix(i, i) = 0.5;
+      dampingMatrix(i, i) = 2.0;
 
     // Set joint properties
     mRobot->eachJoint([](dart::dynamics::Joint* joint) {
@@ -58,6 +58,7 @@ public:
     // std::cout << "Gravity forces\n" << gravityForces << std::endl;
 
     Eigen::MatrixXd J = mEndEffector->getJacobian(mOffset);
+    // Eigen::MatrixXd J = mEndEffector->getWorldJacobian(mOffset);
     // std::cout << "Jacobian\n" << J << std::endl;
 
     Eigen::MatrixXd transJ = J.transpose();
@@ -91,27 +92,32 @@ public:
     // std::cout << "Coriolis matrix task space\n" << taskSpaceCoriolis << std::endl;
 
     Eigen::Vector6d target = Eigen::Vector6d::Zero();
-    target.head(3) = mTarget->getWorldTransform().translation();
-    target.tail(3) = Eigen::Vector3d(1.57, 1.57, 1.57);
-    std::cout << "Target\n" << target << std::endl;
+    target.head(3) = Eigen::Vector3d(0.0, 0.0, 0.0);
+    target.tail(3) = mTarget->getWorldTransform().translation();
+    // std::cout << "Target\n" << target << std::endl;
 
     Eigen::Vector3d eulerAngles = mEndEffector->getWorldTransform().rotation().eulerAngles(2, 1, 0);
+    std::cout << "eulerAngles\n" << eulerAngles << std::endl;
 
     Eigen::Vector6d endEffector = Eigen::Vector6d::Zero();
-    endEffector.head(3) = mEndEffector->getWorldTransform() * mOffset;
-    // endEffector.tail(3) = eulerAngles;
-    endEffector.tail(3) = Eigen::Vector3d(1.57, 1.57, 1.57);   // OBSERVATION
-    std::cout << "End-effector\n" << endEffector << std::endl;
+    // endEffector.head(3) = Eigen::Vector3d(0.0, 0.0, 0.0);
+    endEffector.head(3) = eulerAngles;
+    endEffector.tail(3) = mEndEffector->getWorldTransform() * mOffset;   // OBSERVATION
+    // std::cout << "End-effector\n" << endEffector << std::endl;
 
     Eigen::Vector6d e = target - endEffector;
 
-    std::cout << "Position error\n" << e << std::endl;
+    // std::cout << "Position error\n" << e << std::endl;
 
     Eigen::Vector6d de = mEndEffector->getSpatialVelocity(mOffset);
+    Eigen::Vector6d spatialVelocity = Eigen::Vector6d::Zero();
+    spatialVelocity.head(3) = de.tail<3>();
+    spatialVelocity.tail(3) = de.head<3>();
+
     // Eigen::Vector6d dde = mEndEffector->getSpatialAcceleration(mOffset);
     Eigen::Vector6d dde = Eigen::Vector6d::Zero();
     // std::cout << "Spatial Accelaration\n" << dde << std::endl;
-    // std::cout << "Spatial Velocity\n" << de << std::endl;
+    std::cout << "Spatial Velocity\n" << de << std::endl;
 
     // std::cout << "Inertia term\n" << taskSpaceInertia * (-1)*dde << std::endl;
     // std::cout << "Coriolis term\n" << taskSpaceCoriolis * (-1)*de << std::endl;
@@ -120,13 +126,13 @@ public:
 
     // dde = Eigen::Vector6d(0.0, 0.0, 0.0);
     Eigen::MatrixXd cartesianPart = taskSpaceInertia * (-1)*dde
-                + taskSpaceCoriolis * (-1)*de
-                + dampingMatrix * (-1)*de
+                // + taskSpaceCoriolis * (-1)*de
+                + dampingMatrix * (-1)*spatialVelocity
                 + stiffnessMatrix * e;
 
     mForces = gravityForces + transJ * cartesianPart;
 
-    std::cout << "Forces:\n" << mForces << std::endl;
+    // std::cout << "Forces:\n" << mForces << std::endl;
     // mForces = Eigen::Vector6d::Zero();
 
     mRobot->setForces(mForces);

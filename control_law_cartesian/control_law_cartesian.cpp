@@ -58,6 +58,7 @@ public:
     // std::cout << "Gravity forces\n" << gravityForces << std::endl;
 
     LinearJacobian J = mEndEffector->getLinearJacobian(mOffset);
+    std::cout << "Jacobian\n" << J << std::endl;
 
     Eigen::MatrixXd transJ = J.transpose();
     // std::cout << "Jacobian Transposed\n" << transJ << std::endl;
@@ -95,7 +96,7 @@ public:
     // std::cout << "End-effector\n" << endEffector << std::endl;
 
     Eigen::Vector3d eulerAngles = mEndEffector->getWorldTransform().rotation().eulerAngles(2, 1, 0);
-    std::cout << "End-effector ROTATION\n" << eulerAngles << std::endl;
+    // std::cout << "End-effector ROTATION\n" << eulerAngles << std::endl;
 
     Eigen::Vector3d e = target - endEffector;
 
@@ -118,7 +119,7 @@ public:
 
     mForces = gravityForces + transJ * cartesianPart;
 
-    std::cout << "Forces:\n" << mForces << std::endl;
+    // std::cout << "Forces:\n" << mForces << std::endl;
 
     mRobot->setForces(mForces);
   }

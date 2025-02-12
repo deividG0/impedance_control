@@ -1,0 +1,145 @@
+<?xml version="1.0"?>
+
+<robot name="open_manipulator_pro" xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:macro name="SimpleTransmission" params="joint n">
+        <transmission name="tran${n}">
+            <type>transmission_interface/SimpleTransmission</type>
+            <joint name="${joint}">
+            <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+            </joint>
+            <actuator name="motor${n}">
+            <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+            <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+        </transmission>
+    </xacro:macro>
+    <!-- World -->
+    <link name="world"/>
+
+    <joint name="base_link_gripper" type="fixed">
+        <origin xyz="0.0 0 0" rpy="0 0 0"/>
+        <parent link="world"/>
+        <child link="gripper_main_link"/>
+        <!-- <xacro:insert_block name="origin"/> -->
+    </joint>
+
+    <!-- gripper main link -->
+    <link name="gripper_main_link">
+        <collision>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+            <mesh filename="file://$(find gripper_description)/meshes/gripper_main_link.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+        </collision>
+
+        <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+            <mesh filename="file://$(find gripper_description)/meshes/gripper_main_link.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="grey"/>
+        </visual>
+
+        <inertial>
+        <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+        <mass value="0.509"/>
+        <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0" />
+        </inertial>
+    </link>
+
+    <!-- gripper joint -->
+    <joint name="gripper_sub" type="fixed">
+        <axis xyz="0 0 -1" />		
+        <origin xyz="0.0552 -0.0460 0" rpy="0 0 ${20.0*pi/180.0}"/>
+        <!-- <origin xyz="0.0552 -0.0370 0" rpy="0 0 0"/> -->
+        <parent link="gripper_main_link"/>
+        <child link="gripper_link"/>
+        <limit velocity="6.5" effort="1000" lower="-0.52" upper="${740.0/2048.0*pi}" />
+        <dynamics damping="0.1" friction="0.0" />
+    </joint>
+
+    <!-- Transmission gripper -->
+    <xacro:SimpleTransmission n="_gripper" joint="gripper" />
+
+    <!-- gripper link -->
+    <link name="gripper_link">
+        <collision>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+            <mesh filename="file://$(find gripper_description)/meshes/gripper_link.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="grey"/>
+        </collision>
+
+        <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+            <mesh filename="file://$(find gripper_description)/meshes/gripper_link.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="grey"/>
+        </visual>
+
+        <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.013"/>
+        <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0" />
+        </inertial>
+    </link>
+
+    <!-- gripper joint 1 -->
+    <joint name="gripper" type="revolute">
+        <axis xyz="0 0 1" />		
+        <origin xyz="0.0552 0.0460 0" rpy="0 0 ${(20.0*pi/180.0) - 1.2}"/>
+        <!-- <origin xyz="0.0552 0.0370 0" rpy="0 0 0"/> -->
+        <parent link="gripper_main_link"/>
+        <child link="gripper_sub_link"/>
+        <limit velocity="6.5" effort="1000" lower="-1.77" upper="${740.0/2048.0*pi}" />
+        <dynamics damping="0.1" friction="0.0" />
+    </joint> 
+
+    <!-- Transmission gripper -->
+    <xacro:SimpleTransmission n="_gripper_sub" joint="gripper_sub" />
+
+    <!-- gripper 1 link -->
+    <link name="gripper_sub_link">
+        <collision>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+            <mesh filename="file://$(find gripper_description)/meshes/gripper_sub_link.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="grey"/>
+        </collision>
+
+        <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+            <mesh filename="file://$(find gripper_description)/meshes/gripper_sub_link.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="grey"/>
+        </visual>
+
+        <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.013"/>
+        <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0" />
+        </inertial>
+    </link>
+
+    <ros2_control name="gripper_control" type="system">
+        <hardware>
+            <plugin>dynamixel_hardware/DynamixelHardware</plugin>
+            <param name="usb_port">/dev/ttyUSB0</param>
+            <param name="baud_rate">1000000</param>
+        </hardware>
+
+        <joint name="gripper">
+            <param name="id">10</param>
+            <command_interface name="position"/>
+            <command_interface name="velocity"/>
+            <command_interface name="effort"/>
+            <state_interface name="position"/>
+            <state_interface name="velocity"/>
+            <state_interface name="effort"/>
+        </joint>
+    </ros2_control>
+</robot>

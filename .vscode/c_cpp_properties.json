@@ -7,6 +7,8 @@
       },
       "includePath": [
         "/opt/ros/humble/include/**",
+        "/home/cimatec/workspace/impedance_control/src/dynamixel-workbench/dynamixel_workbench_toolbox/include/**",
+        "/home/cimatec/workspace/impedance_control/src/dynamixel_hardware/dynamixel_hardware/include/**",
         "/usr/include/**"
       ],
       "name": "ROS",
