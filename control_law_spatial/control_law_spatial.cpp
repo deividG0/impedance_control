@@ -96,8 +96,9 @@ public:
     target.tail(3) = mTarget->getWorldTransform().translation();
     // std::cout << "Target\n" << target << std::endl;
 
-    Eigen::Vector3d eulerAngles = mEndEffector->getWorldTransform().rotation().eulerAngles(2, 1, 0);
-    std::cout << "eulerAngles\n" << eulerAngles << std::endl;
+    Eigen::Vector3d eulerAngles = mEndEffector->getWorldTransform().rotation().eulerAngles(0, 1, 0);
+    // Eigen::Vector3d eulerAngles = mEndEffector->getWorldTransform().rotation().eulerAngles(2, 1, 0);
+    // std::cout << "eulerAngles\n" << eulerAngles << std::endl;
 
     Eigen::Vector6d endEffector = Eigen::Vector6d::Zero();
     // endEffector.head(3) = Eigen::Vector3d(0.0, 0.0, 0.0);
@@ -107,7 +108,19 @@ public:
 
     Eigen::Vector6d e = target - endEffector;
 
-    // std::cout << "Position error\n" << e << std::endl;
+    // std::cout << "target\n" << target << std::endl;
+    // std::cout << "endEffector\n" << endEffector << std::endl;
+    std::cout << "Position error\n" << e << std::endl;
+
+    if (double(e(0)) < 0.01){
+      std::cout << "FIRST POSITION ERROR SMALL" << typeid(e(0)).name() << std::endl;
+    }
+    if (double(e(1)) < 0.01){
+      std::cout << "SECOND POSITION ERROR SMALL" << typeid(e(0)).name() << std::endl;
+    }
+    if (double(e(2)) < 0.01){
+      std::cout << "THIRD POSITION ERROR SMALL" << typeid(e(0)).name() << std::endl;
+    }
 
     Eigen::Vector6d de = mEndEffector->getSpatialVelocity(mOffset);
     Eigen::Vector6d spatialVelocity = Eigen::Vector6d::Zero();
@@ -117,7 +130,7 @@ public:
     // Eigen::Vector6d dde = mEndEffector->getSpatialAcceleration(mOffset);
     Eigen::Vector6d dde = Eigen::Vector6d::Zero();
     // std::cout << "Spatial Accelaration\n" << dde << std::endl;
-    std::cout << "Spatial Velocity\n" << de << std::endl;
+    // std::cout << "Spatial Velocity\n" << de << std::endl;
 
     // std::cout << "Inertia term\n" << taskSpaceInertia * (-1)*dde << std::endl;
     // std::cout << "Coriolis term\n" << taskSpaceCoriolis * (-1)*de << std::endl;
@@ -126,7 +139,7 @@ public:
 
     // dde = Eigen::Vector6d(0.0, 0.0, 0.0);
     Eigen::MatrixXd cartesianPart = taskSpaceInertia * (-1)*dde
-                // + taskSpaceCoriolis * (-1)*de
+                + taskSpaceCoriolis * (-1)*spatialVelocity
                 + dampingMatrix * (-1)*spatialVelocity
                 + stiffnessMatrix * e;
 
