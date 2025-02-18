@@ -24,11 +24,11 @@ public:
     std::size_t dofs = 6;
     stiffnessMatrix.setZero(dofs, dofs);
     for (std::size_t i = 0; i < dofs; ++i)
-      stiffnessMatrix(i, i) = 10.0;
+      stiffnessMatrix(i, i) = 100.0;
 
     dampingMatrix.setZero(dofs, dofs);
     for (std::size_t i = 0; i < dofs; ++i)
-      dampingMatrix(i, i) = 2.0;
+      dampingMatrix(i, i) = 5.0;
 
     // Set joint properties
     mRobot->eachJoint([](dart::dynamics::Joint* joint) {
@@ -91,36 +91,27 @@ public:
     Eigen::MatrixXd taskSpaceCoriolis = pinv_tJ * (C - M * pinv_J * dJ) * pinv_J;
     // std::cout << "Coriolis matrix task space\n" << taskSpaceCoriolis << std::endl;
 
+    /*
+      To the following pose vector notice that the first values are set
+      to orientation instead of position.
+    */
+
     Eigen::Vector6d target = Eigen::Vector6d::Zero();
     target.head(3) = Eigen::Vector3d(0.0, 0.0, 0.0);
     target.tail(3) = mTarget->getWorldTransform().translation();
     // std::cout << "Target\n" << target << std::endl;
 
-    Eigen::Vector3d eulerAngles = mEndEffector->getWorldTransform().rotation().eulerAngles(0, 1, 0);
-    // Eigen::Vector3d eulerAngles = mEndEffector->getWorldTransform().rotation().eulerAngles(2, 1, 0);
-    // std::cout << "eulerAngles\n" << eulerAngles << std::endl;
+    Eigen::Matrix3d rotationMatrix = mEndEffector->getWorldTransform().rotation();
+    Eigen::Vector3d eulerAnglesXYZ = dart::math::matrixToEulerXYZ(rotationMatrix);
+    std::cout << "Euler Angles (XYZ): " << eulerAnglesXYZ.transpose() << std::endl;
 
     Eigen::Vector6d endEffector = Eigen::Vector6d::Zero();
-    // endEffector.head(3) = Eigen::Vector3d(0.0, 0.0, 0.0);
-    endEffector.head(3) = eulerAngles;
+    endEffector.head(3) = eulerAnglesXYZ;
     endEffector.tail(3) = mEndEffector->getWorldTransform() * mOffset;   // OBSERVATION
     // std::cout << "End-effector\n" << endEffector << std::endl;
 
     Eigen::Vector6d e = target - endEffector;
-
-    // std::cout << "target\n" << target << std::endl;
-    // std::cout << "endEffector\n" << endEffector << std::endl;
-    std::cout << "Position error\n" << e << std::endl;
-
-    if (double(e(0)) < 0.01){
-      std::cout << "FIRST POSITION ERROR SMALL" << typeid(e(0)).name() << std::endl;
-    }
-    if (double(e(1)) < 0.01){
-      std::cout << "SECOND POSITION ERROR SMALL" << typeid(e(0)).name() << std::endl;
-    }
-    if (double(e(2)) < 0.01){
-      std::cout << "THIRD POSITION ERROR SMALL" << typeid(e(0)).name() << std::endl;
-    }
+    // std::cout << "Position error\n" << e << std::endl;
 
     Eigen::Vector6d de = mEndEffector->getSpatialVelocity(mOffset);
     Eigen::Vector6d spatialVelocity = Eigen::Vector6d::Zero();
@@ -129,15 +120,7 @@ public:
 
     // Eigen::Vector6d dde = mEndEffector->getSpatialAcceleration(mOffset);
     Eigen::Vector6d dde = Eigen::Vector6d::Zero();
-    // std::cout << "Spatial Accelaration\n" << dde << std::endl;
-    // std::cout << "Spatial Velocity\n" << de << std::endl;
 
-    // std::cout << "Inertia term\n" << taskSpaceInertia * (-1)*dde << std::endl;
-    // std::cout << "Coriolis term\n" << taskSpaceCoriolis * (-1)*de << std::endl;
-    // std::cout << "Damping term\n" << dampingMatrix * (-1)*de << std::endl;
-    // std::cout << "Stiffness term\n" << stiffnessMatrix * e << std::endl;
-
-    // dde = Eigen::Vector6d(0.0, 0.0, 0.0);
     Eigen::MatrixXd cartesianPart = taskSpaceInertia * (-1)*dde
                 + taskSpaceCoriolis * (-1)*spatialVelocity
                 + dampingMatrix * (-1)*spatialVelocity
@@ -145,10 +128,8 @@ public:
 
     mForces = gravityForces + transJ * cartesianPart;
 
-    // std::cout << "Forces:\n" << mForces << std::endl;
-    // mForces = Eigen::Vector6d::Zero();
-
     mRobot->setForces(mForces);
+    // std::cout << "Forces:\n" << mForces << std::endl;
   }
 
   dart::gui::osg::DragAndDrop* dnd;
